@@ -212,18 +212,17 @@ int main(void)
 			FC_EmergencyDisarm();
 		}
 
-
 		if(NewRCData)
 		{
 			NewRCData = false;
 			FC_RC_UpdateArmStatus(CRSF_ArmStatus);
-			FC_RC_UpdateAxisChannels(THROTTLE, PITCH, ROLL, YAW);
+			FC_RC_UpdateAxesChannels(THROTTLE, ROLL, PITCH, YAW);
 		}
 
 		if(NewIMUData)
 		{
 			NewIMUData = false;
-			FC_IMU_UpdateGyro(IMUData.GyroY, IMUData.GyroX, IMUData.GyroZ, 0.005f);
+			FC_IMU_UpdateGyro(IMUData.GyroX, IMUData.GyroY, IMUData.GyroZ, 0.005f);
 			FC_IMU_UpdateAccel(IMUData.AccelX, IMUData.AccelY, IMUData.AccelZ, 0.005f);
 
 			static size_t accelCtr = 0;
