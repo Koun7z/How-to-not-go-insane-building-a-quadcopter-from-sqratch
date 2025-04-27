@@ -1,0 +1,12 @@
+[submodule "Drone-Controller/CRSF-for-stm32"]
+	path = Drone-Controller/CRSF-for-stm32
+	url = https://github.com/Koun7z/CRSF-for-stm32.git
+[submodule "Drone-Controller/MPU6050-stm32-interface"]
+	path = Drone-Controller/MPU6050-stm32-interface
+	url = https://github.com/Koun7z/MPU6050-stm32-interface.git
+[submodule "Drone-Controller/DSP-lib"]
+	path = Drone-Controller/DSP-lib
+	url = https://github.com/Koun7z/DSP-lib.git
+[submodule "Drone-Controller/Sigma-Copter"]
+	path = Drone-Controller/Sigma-Copter
+	url = https://github.com/Koun7z/Sigma-Copter.git
