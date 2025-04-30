@@ -47,6 +47,8 @@
 #define CCR_MAX 2400.0f
 #define CCR_MIN 480.0f
 
+#define REF_VOLTAGE 20.0f
+
 #define VOLTAGE_DIV_RATIO 10.375f
 /* USER CODE END PD */
 
@@ -130,6 +132,12 @@ void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 	BatteryData.Voltage = (int16_t)((float)HAL_ADC_GetValue(&hadc1) * 33.0f * VOLTAGE_DIV_RATIO / 4096.0f);
 }
 
+void FC_OnDebugLog(const char* msg, size_t len)
+{
+
+	printf("%s", msg);
+}
+
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
@@ -173,6 +181,8 @@ int main(void)
 	MX_ADC1_Init();
 	MX_CRC_Init();
 	/* USER CODE BEGIN 2 */
+
+
 
 	CRSF_Init(&huart1);
 
@@ -236,8 +246,8 @@ int main(void)
 			float angles[3];
 			DSP_QT_EulerAngles_f32(angles, &FC_IMU_Data.Attitude);
 
-			//printf("%f,%f,%f,%f,%f,%f,%f,%f\r\n", FC_IMU_Data.GyroX, FC_IMU_Data.GyroY, FC_IMU_Data.GyroZ,
-			//FC_IMU_Data.AccelX, FC_IMU_Data.AccelY, FC_IMU_Data.AccelZ, angles[0], angles[1]);
+			// printf("%f,%f,%f,%f,%f,%f,%f,%f\r\n", FC_IMU_Data.GyroX, FC_IMU_Data.GyroY, FC_IMU_Data.GyroZ,
+			// FC_IMU_Data.AccelX, FC_IMU_Data.AccelY, FC_IMU_Data.AccelZ, angles[0], angles[1]);
 		}
 
 		static uint32_t lastTick5 = 0;
@@ -250,12 +260,13 @@ int main(void)
 			//        FC_GlobalThrust.Motor4);
 
 			MPU_RequestAllDMA(&IMUData);
-
-
-			// TIM3->CCR1 = (uint32_t)(FC_GlobalThrust.Motor1 * (CCR_MAX - CCR_MIN) / 100.0f + CCR_MIN);
-			// TIM3->CCR2 = (uint32_t)(FC_GlobalThrust.Motor2 * (CCR_MAX - CCR_MIN) / 100.0f + CCR_MIN));
-			// TIM3->CCR3 = (uint32_t)(FC_GlobalThrust.Motor3 * (CCR_MAX - CCR_MIN) / 100.0f + CCR_MIN));
-			// TIM3->CCR4 = (uint32_t)(FC_GlobalThrust.Motor4 * (CCR_MAX - CCR_MIN) / 100.0f + CCR_MIN));
+			const float voltage_comp = REF_VOLTAGE / (BatteryData.Voltage / 10.0f);
+			/*
+			TIM3->CCR1 = (uint32_t)(FC_GlobalThrust.Motor1 * (CCR_MAX - CCR_MIN) * voltage_comp / 100.0f + CCR_MIN);
+			TIM3->CCR2 = (uint32_t)(FC_GlobalThrust.Motor2 * (CCR_MAX - CCR_MIN) * voltage_comp / 100.0f + CCR_MIN);
+			TIM3->CCR3 = (uint32_t)(FC_GlobalThrust.Motor3 * (CCR_MAX - CCR_MIN) * voltage_comp / 100.0f + CCR_MIN);
+			TIM3->CCR4 = (uint32_t)(FC_GlobalThrust.Motor4 * (CCR_MAX - CCR_MIN) * voltage_comp / 100.0f + CCR_MIN);
+			*/
 		}
 		else
 		{

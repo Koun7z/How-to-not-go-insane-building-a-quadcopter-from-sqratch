@@ -1,8 +1,11 @@
-[gd_scene load_steps=9 format=3 uid="uid://c60bu6po3f58a"]
+[gd_scene load_steps=14 format=3 uid="uid://c60bu6po3f58a"]
 
-[ext_resource type="Script" uid="uid://bv3jygy483pwo" path="res://Sctripts/DronePreviev.cs" id="1_on2c2"]
+[ext_resource type="Script" uid="uid://brjqjk0vqmasj" path="res://Sctripts/DronePreview.cs" id="1_on2c2"]
 [ext_resource type="Script" uid="uid://de34bbqlo7rhm" path="res://Sctripts/SerialInterface.cs" id="1_q28su"]
-[ext_resource type="Material" uid="uid://6ong3507spu8" path="res://Materials/new_standard_material_3d.tres" id="2_58ij3"]
+[ext_resource type="Material" uid="uid://6ong3507spu8" path="res://Materials/Purple.tres" id="2_58ij3"]
+[ext_resource type="Material" uid="uid://bx0hhyia368lj" path="res://Materials/Purple50.tres" id="4_2exal"]
+[ext_resource type="Script" uid="uid://dyuiegaiga6hp" path="res://Sctripts/DroneTargetPreview.cs" id="4_edsjh"]
+[ext_resource type="Script" uid="uid://i2gb5xukb0lg" path="res://Sctripts/GUIController.cs" id="6_ch5ua"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_t8uvw"]
 size = Vector3(0.640137, 0.048584, 0.290894)
@@ -12,6 +15,10 @@ material = ExtResource("2_58ij3")
 size = Vector3(0.64, 0.049, 0.3)
 
 [sub_resource type="PrismMesh" id="PrismMesh_2exal"]
+
+[sub_resource type="BoxMesh" id="BoxMesh_edsjh"]
+
+[sub_resource type="PrismMesh" id="PrismMesh_ch5ua"]
 
 [sub_resource type="StandardMaterial3D" id="StandardMaterial3D_on2c2"]
 transparency = 1
@@ -24,8 +31,13 @@ material = SubResource("StandardMaterial3D_on2c2")
 transform = Transform3D(1, 5.88234e-05, -3.74636e-05, -5.88234e-05, 1, -3.18801e-06, 3.74636e-05, 3.18801e-06, 1, 0, 0, 0)
 
 [node name="Camera3D" type="Camera3D" parent="."]
-transform = Transform3D(1, 0, 0, 0, 0.906404, 0.422413, 0, -0.422413, 0.906404, 0.0465771, 0.590345, 1.18693)
+transform = Transform3D(1, -1.27347e-08, -1.81216e-05, 1.16379e-05, 0.766975, 0.641677, 1.38905e-05, -0.641677, 0.766975, 0.0465563, 0.785066, 0.936357)
 fov = 83.2875
+
+[node name="SerialConnection" type="Node3D" parent="."]
+transform = Transform3D(-0.200194, 0.795619, -0.571763, -0.854564, 0.143639, 0.499088, 0.479211, 0.588522, 0.651151, 0, 0, 0)
+script = ExtResource("1_q28su")
+_portName = "COM69"
 
 [node name="Drone" type="StaticBody3D" parent="." node_paths=PackedStringArray("_serialConnection")]
 rotation_edit_mode = 1
@@ -46,15 +58,74 @@ transform = Transform3D(-3.38405e-08, 0.237505, -1.73049e-09, 1.7053e-13, -1.038
 material_override = ExtResource("2_58ij3")
 mesh = SubResource("PrismMesh_2exal")
 
-[node name="SerialConnection" type="Node3D" parent="."]
-transform = Transform3D(-0.200194, 0.795619, -0.571763, -0.854564, 0.143639, 0.499088, 0.479211, 0.588522, 0.651151, 0, 0, 0)
-script = ExtResource("1_q28su")
-_portName = "COM69"
-
 [node name="Sun" type="OmniLight3D" parent="."]
 transform = Transform3D(1, -1.20673e-10, -1.89175e-10, -5.36113e-13, 1, 2.20371e-09, 0, 0, 1, -7.00205e-05, 2.02207, -3.79223e-06)
+
+[node name="DroneTarget" type="StaticBody3D" parent="." node_paths=PackedStringArray("_serialConnection")]
+transform = Transform3D(1, -6.19574e-13, 0, -5.36418e-13, 1, 0, 0, 0, 1, 0, 0, 0)
+rotation_edit_mode = 1
+script = ExtResource("4_edsjh")
+_serialConnection = NodePath("../SerialConnection")
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="DroneTarget"]
+shape = SubResource("BoxShape3D_t8uvw")
+debug_color = Color(0.511147, 0.51369, 0.710238, 0.42)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DroneTarget"]
+transform = Transform3D(0.619594, -3.6766e-13, -4.54747e-13, -2.34565e-12, 0.0388045, 0, -1.81899e-12, -5.68434e-14, 0.096498, -0.0613532, -3.609e-06, 2.29853e-06)
+rotation_edit_mode = 1
+material_override = ExtResource("4_2exal")
+mesh = SubResource("BoxMesh_edsjh")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="DroneTarget/MeshInstance3D"]
+transform = Transform3D(-1.12727e-07, 0.433089, -6.01875e-08, 1.81899e-12, -1.93135e-08, -1.37632, -2.5802, -1.89466e-08, -4.54747e-13, 0.708965, -0.0147739, -8.38902e-05)
+material_override = ExtResource("4_2exal")
+mesh = SubResource("PrismMesh_ch5ua")
 
 [node name="Ground" type="Node3D" parent="."]
 
 [node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
 mesh = SubResource("PlaneMesh_58ij3")
+
+[node name="GUI" type="CanvasLayer" parent="."]
+layer = 0
+script = ExtResource("6_ch5ua")
+
+[node name="BottomBar" type="Control" parent="GUI"]
+layout_mode = 3
+anchors_preset = 0
+offset_top = 937.0
+offset_right = 1922.0
+offset_bottom = 1077.0
+
+[node name="Thrust" type="Label" parent="GUI/BottomBar"]
+layout_mode = 0
+offset_left = 30.0
+offset_top = 90.0
+offset_right = 104.0
+offset_bottom = 128.0
+text = "Thrust: "
+
+[node name="Roll" type="Label" parent="GUI/BottomBar"]
+layout_mode = 0
+offset_left = 360.0
+offset_top = 90.0
+offset_right = 404.0
+offset_bottom = 113.0
+text = "Pitch:"
+
+[node name="Pitch" type="Label" parent="GUI/BottomBar"]
+layout_mode = 0
+offset_left = 180.0
+offset_top = 90.0
+offset_right = 220.0
+offset_bottom = 113.0
+text = "Roll:"
+
+[node name="Yaw" type="Label" parent="GUI/BottomBar"]
+layout_mode = 0
+offset_left = 540.0
+offset_top = 90.0
+offset_right = 580.0
+offset_bottom = 113.0
+text = "Yaw:"
