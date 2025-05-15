@@ -1,4 +1,4 @@
-[gd_scene load_steps=14 format=3 uid="uid://c60bu6po3f58a"]
+[gd_scene load_steps=15 format=3 uid="uid://c60bu6po3f58a"]
 
 [ext_resource type="Script" uid="uid://brjqjk0vqmasj" path="res://Sctripts/DronePreview.cs" id="1_on2c2"]
 [ext_resource type="Script" uid="uid://de34bbqlo7rhm" path="res://Sctripts/SerialInterface.cs" id="1_q28su"]
@@ -6,6 +6,7 @@
 [ext_resource type="Material" uid="uid://bx0hhyia368lj" path="res://Materials/Purple50.tres" id="4_2exal"]
 [ext_resource type="Script" uid="uid://dyuiegaiga6hp" path="res://Sctripts/DroneTargetPreview.cs" id="4_edsjh"]
 [ext_resource type="Script" uid="uid://i2gb5xukb0lg" path="res://Sctripts/GUIController.cs" id="6_ch5ua"]
+[ext_resource type="Texture2D" uid="uid://c8s37hpu4hal0" path="res://Sprites/AS.png" id="7_ql50d"]
 
 [sub_resource type="BoxShape3D" id="BoxShape3D_t8uvw"]
 size = Vector3(0.640137, 0.048584, 0.290894)
@@ -129,3 +130,44 @@ offset_top = 90.0
 offset_right = 580.0
 offset_bottom = 113.0
 text = "Yaw:"
+
+[node name="DroneSprite" type="TextureRect" parent="GUI/BottomBar"]
+layout_mode = 0
+offset_left = 1640.0
+offset_top = -92.0
+offset_right = 1879.0
+offset_bottom = 138.0
+texture = ExtResource("7_ql50d")
+expand_mode = 1
+
+[node name="Motor1" type="Label" parent="GUI/BottomBar/DroneSprite"]
+layout_mode = 0
+offset_left = 210.0
+offset_top = 52.0
+offset_right = 250.0
+offset_bottom = 75.0
+text = "0%"
+
+[node name="Motor2" type="Label" parent="GUI/BottomBar/DroneSprite"]
+layout_mode = 0
+offset_left = -10.0
+offset_top = 52.0
+offset_right = 30.0
+offset_bottom = 75.0
+text = "0%"
+
+[node name="Motor3" type="Label" parent="GUI/BottomBar/DroneSprite"]
+layout_mode = 0
+offset_left = 210.0
+offset_top = 152.0
+offset_right = 250.0
+offset_bottom = 175.0
+text = "0%"
+
+[node name="Motor4" type="Label" parent="GUI/BottomBar/DroneSprite"]
+layout_mode = 0
+offset_left = -10.0
+offset_top = 152.0
+offset_right = 30.0
+offset_bottom = 175.0
+text = "0%"

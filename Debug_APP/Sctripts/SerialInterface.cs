@@ -17,6 +17,7 @@ public partial class SerialInterface : Node
 	public Quaternion Attitude = Quaternion.Identity;
 	public Quaternion TargetAttitude = Quaternion.Identity;
 	public Vector4 RC_Input = Vector4.Zero;
+	public Vector4 Thrust = Vector4.Zero;
 	
 	// Called when the node enters the scene tree for the first time.
 	public override void _Ready()
@@ -112,6 +113,32 @@ public partial class SerialInterface : Node
 					if (float.TryParse(input[3], NumberStyles.Float, CultureInfo.InvariantCulture, out temp))
 					{
 						RC_Input.Z = temp;
+					}
+
+					break;
+				}
+				case "FC_Thrust":
+				{
+					var input = lineArgs[1].Split(",", StringSplitOptions.TrimEntries);
+
+					if (float.TryParse(input[0], NumberStyles.Float, CultureInfo.InvariantCulture, out temp))
+					{
+						Thrust.W = temp;
+					}
+
+					if (float.TryParse(input[1], NumberStyles.Float, CultureInfo.InvariantCulture, out temp))
+					{
+						Thrust.X = temp;
+					}
+
+					if (float.TryParse(input[2], NumberStyles.Float, CultureInfo.InvariantCulture, out temp))
+					{
+						Thrust.Y = temp;
+					}
+
+					if (float.TryParse(input[3], NumberStyles.Float, CultureInfo.InvariantCulture, out temp))
+					{
+						Thrust.Z = temp;
 					}
 
 					break;

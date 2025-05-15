@@ -24,11 +24,20 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
+// Data acusition
 #include "CRSF_Connection.h"
-#include "FlightController.h"
 #include "MPU6050.h"
+
+// FC
+#include "FC_Config.h"
+#include "FlightController.h"
+
+// ST Middleware
 #include "usb_device.h"
 #include "usbd_cdc_if.h"
+#include <sys\stat.h>
+
+#include <float.h>
 
 /* USER CODE END Includes */
 
@@ -47,6 +56,7 @@
 #define CCR_MAX 2400.0f
 #define CCR_MIN 480.0f
 
+#define MIN_VOLTAGE 20.0f
 #define REF_VOLTAGE 20.0f
 
 #define VOLTAGE_DIV_RATIO 10.375f
@@ -77,6 +87,10 @@ volatile bool NewIMUData            = false;
 volatile bool NewRCData             = false;
 volatile bool ConnectionEstablished = false;
 
+volatile float BatteryVoltage = FLT_MAX;
+
+uint32_t IMU_Rate = 0;
+
 CRSF_BatteryData BatteryData;
 MPU_Instance IMUData;
 /* USER CODE END PV */
@@ -101,7 +115,6 @@ int _write(int file, char* ptr, int len)
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size)
 {
 	CRSF_HandleRX();
-	ConnectionEstablished = true;
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
@@ -125,16 +138,22 @@ void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef* hi2c)
 void CRSF_OnChannelsPacked()
 {
 	NewRCData = true;
+	ConnectionEstablished = true;
 }
 
 void HAL_ADC_ConvCpltCallback(ADC_HandleTypeDef* hadc)
 {
-	BatteryData.Voltage = (int16_t)((float)HAL_ADC_GetValue(&hadc1) * 33.0f * VOLTAGE_DIV_RATIO / 4096.0f);
+	BatteryVoltage = (float)HAL_ADC_GetValue(&hadc1) * 3.3f * VOLTAGE_DIV_RATIO / 4096.0f;
+
+	BatteryData.Voltage = (int16_t)(BatteryVoltage * 10.0f);
+
+	// TODO: Debug info for tuning
+	const float Ti           = FC_RC_Data.Aux2 * 4 / 100.0f + 0.05f;
+	BatteryData.UsedCapacity = (int)(Ti * 1000.0f);
 }
 
 void FC_OnDebugLog(const char* msg, size_t len)
 {
-
 	printf("%s", msg);
 }
 
@@ -183,15 +202,13 @@ int main(void)
 	/* USER CODE BEGIN 2 */
 
 
-
 	CRSF_Init(&huart1);
 
 	while(!MPU_Init(&IMUData, &hi2c1, MPU_ADDRESS_1))
 	{
 	}
 	HAL_Delay(2000);
-	MPU_CalibrateGyro(&IMUData, 2000);
-	MPU_CalibrateAccel(&IMUData, 2000);
+	MPU_CalibrateAll(&IMUData,1000);
 	FC_Init();
 
 	static float a[] = {-1.5610f, 0.6414f};
@@ -217,9 +234,24 @@ int main(void)
 	/* USER CODE BEGIN WHILE */
 	while(1)
 	{
+		// Connection loss protection
 		if(HAL_GetTick() - CRSF_LastChannelsPacked > 200 && ConnectionEstablished)
 		{
 			FC_EmergencyDisarm();
+		}
+
+		// Low battery protection
+		static uint32_t lowVCtr = 0;
+		if(BatteryVoltage < MIN_VOLTAGE && BatteryVoltage > 6.0f && ConnectionEstablished)
+		{
+			if(HAL_GetTick() - lowVCtr > 1000)
+			{
+				FC_EmergencyDisarm();
+			}
+		}
+		else
+		{
+			lowVCtr = HAL_GetTick();
 		}
 
 		if(NewRCData)
@@ -227,7 +259,9 @@ int main(void)
 			NewRCData = false;
 			FC_RC_UpdateArmStatus(CRSF_ArmStatus);
 			FC_RC_UpdateAxesChannels(THROTTLE, ROLL, PITCH, YAW);
+			FC_RC_UpdateAuxChannels(CRSF_Channels.Ch5, CRSF_Channels.Ch6, CRSF_Channels.Ch7, CRSF_Channels.Ch8);
 		}
+
 
 		if(NewIMUData)
 		{
@@ -235,38 +269,44 @@ int main(void)
 			FC_IMU_UpdateGyro(IMUData.GyroX, IMUData.GyroY, IMUData.GyroZ, 0.005f);
 			FC_IMU_UpdateAccel(IMUData.AccelX, IMUData.AccelY, IMUData.AccelZ, 0.005f);
 
-			static size_t accelCtr = 0;
-			if(accelCtr > 10)
-			{
-				// FC_IMU_UpdateAccel(IMUData.AccelX, IMUData.AccelY, IMUData.AccelZ, 0.005f * 10);
-				accelCtr = 0;
-			}
-			accelCtr++;
+			/*float angles[3];
+			DSP_QT_EulerAngles_f32(angles, &FC_IMU_Data.Attitude);*/
 
-			float angles[3];
-			DSP_QT_EulerAngles_f32(angles, &FC_IMU_Data.Attitude);
+			/*printf("%f,%f,%f,%f,%f,%f\n\r", IMUData.GyroX, IMUData.GyroY, IMUData.GyroZ, IMUData.AccelX, IMUData.AccelY,
+			       IMUData.AccelZ);*/
+
+			IMU_Rate++;
 
 			// printf("%f,%f,%f,%f,%f,%f,%f,%f\r\n", FC_IMU_Data.GyroX, FC_IMU_Data.GyroY, FC_IMU_Data.GyroZ,
 			// FC_IMU_Data.AccelX, FC_IMU_Data.AccelY, FC_IMU_Data.AccelZ, angles[0], angles[1]);
 		}
 
+
+		static uint32_t lastIMU = 0;
+		if (HAL_GetTick() - lastIMU >= 5)
+		{
+			lastIMU = HAL_GetTick();
+			MPU_RequestAllDMA(&IMUData);
+		}
+
+
 		static uint32_t lastTick5 = 0;
-		if(HAL_GetTick() - lastTick5 >= 5)
+		if(HAL_GetTick() - lastTick5 >= (uint32_t)(FC_PID_Ts * 1000))
 		{
 			lastTick5 = HAL_GetTick();
-			FC_Update(0.005f);
+			FC_Update(FC_PID_Ts);
 
 			// printf("%f,%f,%f,%f\n", FC_GlobalThrust.Motor1, FC_GlobalThrust.Motor2, FC_GlobalThrust.Motor3,
 			//        FC_GlobalThrust.Motor4);
 
-			MPU_RequestAllDMA(&IMUData);
-			const float voltage_comp = REF_VOLTAGE / (BatteryData.Voltage / 10.0f);
-			/*
+
+
+			const float voltage_comp = REF_VOLTAGE / BatteryVoltage;
+
 			TIM3->CCR1 = (uint32_t)(FC_GlobalThrust.Motor1 * (CCR_MAX - CCR_MIN) * voltage_comp / 100.0f + CCR_MIN);
 			TIM3->CCR2 = (uint32_t)(FC_GlobalThrust.Motor2 * (CCR_MAX - CCR_MIN) * voltage_comp / 100.0f + CCR_MIN);
 			TIM3->CCR3 = (uint32_t)(FC_GlobalThrust.Motor3 * (CCR_MAX - CCR_MIN) * voltage_comp / 100.0f + CCR_MIN);
 			TIM3->CCR4 = (uint32_t)(FC_GlobalThrust.Motor4 * (CCR_MAX - CCR_MIN) * voltage_comp / 100.0f + CCR_MIN);
-			*/
 		}
 		else
 		{
@@ -278,9 +318,19 @@ int main(void)
 
 		/* USER CODE BEGIN 3 */
 		static uint32_t lastTick1000 = 0;
+
+		if(FC_EmergencyDisarmStatus && HAL_GetTick() - lastTick1000 >= 100)
+		{
+			lastTick1000 = HAL_GetTick();
+			HAL_GPIO_TogglePin(INT_LED_GPIO_Port, INT_LED_Pin);
+		}
+
 		if(HAL_GetTick() - lastTick1000 >= 1000)
 		{
 			lastTick1000 = HAL_GetTick();
+
+			//printf("%u\n\r", IMU_Rate);
+			IMU_Rate = 0;
 
 			HAL_GPIO_TogglePin(INT_LED_GPIO_Port, INT_LED_Pin);
 		}
@@ -599,6 +649,10 @@ void Error_Handler(void)
 	/* USER CODE BEGIN Error_Handler_Debug */
 	/* User can add his own implementation to report the HAL error return state */
 	__disable_irq();
+	TIM3->CCR1 = 0;
+	TIM3->CCR2 = 0;
+	TIM3->CCR3 = 0;
+	TIM3->CCR4 = 0;
 	while(1)
 	{
 	}
