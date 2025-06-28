@@ -48,10 +48,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define THROTTLE CRSF_Channels.Ch3
-#define PITCH    CRSF_Channels.Ch2
-#define ROLL     CRSF_Channels.Ch1
-#define YAW      CRSF_Channels.Ch4
+#define THROTTLE CRSF_Channels[2]
+#define PITCH    CRSF_Channels[1]
+#define ROLL     CRSF_Channels[0]
+#define YAW      CRSF_Channels[3]
 
 #define CCR_MAX 2400.0f
 #define CCR_MIN 480.0f
@@ -114,12 +114,13 @@ int _write(int file, char* ptr, int len)
 
 void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef* huart, uint16_t Size)
 {
-	CRSF_HandleRX();
+	NewRCData = true;
 }
 
 void HAL_UART_RxCpltCallback(UART_HandleTypeDef* huart)
 {
-	printf("?\n");
+	printf("CPLT\r\n");
+	NewRCData = true;
 }
 
 void HAL_UART_TxCpltCallback(UART_HandleTypeDef* huart) {}
@@ -137,7 +138,6 @@ void HAL_I2C_MemRxCpltCallback(I2C_HandleTypeDef* hi2c)
 
 void CRSF_OnChannelsPacked()
 {
-	NewRCData = true;
 	ConnectionEstablished = true;
 }
 
@@ -156,6 +156,8 @@ void FC_OnDebugLog(const char* msg, size_t len)
 {
 	printf("%s", msg);
 }
+
+void BlinkLedNTimes(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin, uint8_t n);
 
 /* USER CODE END PFP */
 
@@ -201,6 +203,7 @@ int main(void)
 	MX_CRC_Init();
 	/* USER CODE BEGIN 2 */
 
+	HAL_Delay(500);
 
 	CRSF_Init(&huart1);
 
@@ -237,7 +240,7 @@ int main(void)
 		// Connection loss protection
 		if(HAL_GetTick() - CRSF_LastChannelsPacked > 200 && ConnectionEstablished)
 		{
-			FC_EmergencyDisarm();
+			FC_EmergencyDisarm(FC_ConnectionLost);
 		}
 
 		// Low battery protection
@@ -246,7 +249,8 @@ int main(void)
 		{
 			if(HAL_GetTick() - lowVCtr > 1000)
 			{
-				FC_EmergencyDisarm();
+				//TODO:
+				// FC_EmergencyDisarm(FC_BatteryLow);
 			}
 		}
 		else
@@ -257,9 +261,10 @@ int main(void)
 		if(NewRCData)
 		{
 			NewRCData = false;
-			FC_RC_UpdateArmStatus(CRSF_ArmStatus);
-			FC_RC_UpdateAxesChannels(THROTTLE, ROLL, PITCH, YAW);
-			FC_RC_UpdateAuxChannels(CRSF_Channels.Ch5, CRSF_Channels.Ch6, CRSF_Channels.Ch7, CRSF_Channels.Ch8);
+			CRSF_HandleRX();
+			// FC_RC_UpdateArmStatus(CRSF_ArmStatus);
+			// FC_RC_UpdateAxesChannels(THROTTLE, ROLL, PITCH, YAW);
+			// FC_RC_UpdateAuxChannels(CRSF_Channels.Ch5, CRSF_Channels.Ch6, CRSF_Channels.Ch7, CRSF_Channels.Ch8);
 		}
 
 
@@ -272,8 +277,8 @@ int main(void)
 			/*float angles[3];
 			DSP_QT_EulerAngles_f32(angles, &FC_IMU_Data.Attitude);*/
 
-			/*printf("%f,%f,%f,%f,%f,%f\n\r", IMUData.GyroX, IMUData.GyroY, IMUData.GyroZ, IMUData.AccelX, IMUData.AccelY,
-			       IMUData.AccelZ);*/
+			/*printf("%f,%f,%f,%f,%f,%f\n\r", IMUData.GyroX, IMUData.GyroY, IMUData.GyroZ, IMUData.AccelX,
+			   IMUData.AccelY, IMUData.AccelZ);*/
 
 			IMU_Rate++;
 
@@ -283,7 +288,7 @@ int main(void)
 
 
 		static uint32_t lastIMU = 0;
-		if (HAL_GetTick() - lastIMU >= 5)
+		if(HAL_GetTick() - lastIMU >= 5)
 		{
 			lastIMU = HAL_GetTick();
 			MPU_RequestAllDMA(&IMUData);
@@ -298,7 +303,6 @@ int main(void)
 
 			// printf("%f,%f,%f,%f\n", FC_GlobalThrust.Motor1, FC_GlobalThrust.Motor2, FC_GlobalThrust.Motor3,
 			//        FC_GlobalThrust.Motor4);
-
 
 
 			const float voltage_comp = REF_VOLTAGE / BatteryVoltage;
@@ -319,20 +323,28 @@ int main(void)
 		/* USER CODE BEGIN 3 */
 		static uint32_t lastTick1000 = 0;
 
-		if(FC_EmergencyDisarmStatus && HAL_GetTick() - lastTick1000 >= 100)
+		const FC_StatusTypeDef errStatus = FC_GetStatus();
+
+		switch(errStatus)
 		{
-			lastTick1000 = HAL_GetTick();
-			HAL_GPIO_TogglePin(INT_LED_GPIO_Port, INT_LED_Pin);
+			case FC_BatteryLow:
+				BlinkLedNTimes(INT_LED_GPIO_Port, INT_LED_Pin, 2);
+				break;
+			case FC_ConnectionLost:
+				BlinkLedNTimes(INT_LED_GPIO_Port, INT_LED_Pin, 3);
+				break;
+			default:
+				break;
 		}
 
 		if(HAL_GetTick() - lastTick1000 >= 1000)
 		{
 			lastTick1000 = HAL_GetTick();
 
-			//printf("%u\n\r", IMU_Rate);
+			// printf("%u\n\r", IMU_Rate);
 			IMU_Rate = 0;
-
-			HAL_GPIO_TogglePin(INT_LED_GPIO_Port, INT_LED_Pin);
+			if (!errStatus)
+				HAL_GPIO_TogglePin(INT_LED_GPIO_Port, INT_LED_Pin);
 		}
 		/* USER CODE END WHILE */
 
@@ -637,7 +649,65 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+// Yeah, ChatGPT wrote this one, I needed it for a quick test
+void BlinkLedNTimes(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin, uint8_t n)
+{
+	typedef enum { LED_STATE_IDLE, LED_STATE_BLINK_ON, LED_STATE_BLINK_OFF, LED_STATE_WAIT } LedState;
 
+	static LedState state       = LED_STATE_IDLE;
+	static uint32_t lastTick    = 0;
+	static uint8_t blinkCount   = 0;
+	static uint8_t targetBlinks = 0;
+
+	switch(state)
+	{
+		case LED_STATE_IDLE:
+			if(n > 0)
+			{
+				targetBlinks = n;
+				blinkCount   = 0;
+				state        = LED_STATE_BLINK_ON;
+				lastTick     = HAL_GetTick();
+				HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+			}
+			break;
+
+		case LED_STATE_BLINK_ON:
+			if(HAL_GetTick() - lastTick >= 100)
+			{
+				HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
+				lastTick = HAL_GetTick();
+				state    = LED_STATE_BLINK_OFF;
+			}
+			break;
+
+		case LED_STATE_BLINK_OFF:
+			if(HAL_GetTick() - lastTick >= 100)
+			{
+				blinkCount++;
+				if(blinkCount < targetBlinks)
+				{
+					HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+					lastTick = HAL_GetTick();
+					state    = LED_STATE_BLINK_ON;
+				}
+				else
+				{
+					HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+					state    = LED_STATE_WAIT;
+					lastTick = HAL_GetTick();
+				}
+			}
+			break;
+
+		case LED_STATE_WAIT:
+			if(HAL_GetTick() - lastTick >= 1000)
+			{
+				state = LED_STATE_IDLE;
+			}
+			break;
+	}
+}
 /* USER CODE END 4 */
 
 /**

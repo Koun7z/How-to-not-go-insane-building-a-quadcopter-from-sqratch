@@ -14,11 +14,11 @@ public partial class DronePreview : StaticBody3D
     {
         Quaternion q = _serialConnection.Attitude.Normalized();
         
-        Vector3 up = new Vector3(0, 1, 0);
+        Vector3 l = new Vector3(1, 0, 0);
 
-        up = q * up;
+        l = q * l;
 
-        Quaternion q_out = q;
+        Quaternion q_out = new();
         
         /*q_out.W = Mathf.Sqrt(0.5f * (1.0f + up.Y));  // careful: up_z could be -1 if upside down
         if(q_out.W > 1e-6f) // Protect against divide by zero
@@ -33,12 +33,18 @@ public partial class DronePreview : StaticBody3D
             q_out.Z = 0.0f;
         }
         q_out.Y = 0.0f;*/
-
         
-        Basis basis = new(q_out.Normalized());
+        /*float temp = Mathf.Sqrt(l.X * l.X + l.Z * l.Z);
+        
+        q_out.W = Mathf.Sqrt(temp + l.X * Mathf.Sqrt(temp)) / Mathf.Sqrt(2 * temp);
+        q_out.X = 0;
+        q_out.Z = 0;
+        q_out.Y = l.Z / Mathf.Sqrt(2 * (temp + l.X * Mathf.Sqrt(temp)));
+        
+        Basis basis = new(q * q_out);*/
         
         //GD.Print(basis.GetEuler(EulerOrder.Yzx));
         
-        this.Basis = basis;
+        this.Basis = new Basis(q);
     }
-}
+}  
