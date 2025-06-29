@@ -136,7 +136,6 @@ dkms.conf
 # STM32CubeIDE
 .metadata/
 .settings/
-*.ld
 *.cyclo
 *.mk
 *.list
